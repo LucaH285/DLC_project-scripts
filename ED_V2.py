@@ -139,7 +139,7 @@ ED=Euclidean_Distance()
 ED.source = os.chdir(r'E:\work\20191206-20200507T194022Z-001\20191206')
 ED.cut_off = 0.95
 ED.body_part_names = ["Nose", "Head", "Body", "Tail"]
-print(ED.Compute_Euclidean())
+ED.Compute_Euclidean()
     
     
 

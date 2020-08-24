@@ -57,17 +57,15 @@ class Euclidean_Distance():
                             coordinate_vector[x] = coordinate_vector[probs-1]
         return coordinate_vector    
     def Euclidean_distance(self, coordinates):
-        compute1 = []
-        for corn, corn1 in zip(coordinates[:-1], coordinates[1:]):
-            compute = np.square(np.subtract(corn1, corn))
-            compute1.append(compute)
-        return compute1
+        map_fxn_1 = map(
+            lambda x, y: np.square(np.subtract(x, y)), coordinates[:-1], coordinates[1:] 
+            )
+        return list(map_fxn_1)
     def Euclidean_distance_2(self, x_cors, y_cors):
-        Euc_list = []
-        for i, j in zip(x_cors, y_cors):
-            compute = np.sqrt((i + j))
-            Euc_list.append(compute)
-        return Euc_list
+        map_fxn_2 = map(
+            lambda x, y: np.sqrt((x + y)), x_cors, y_cors
+            )
+        return list(map_fxn_2)
     def dataframe_generator(self, filename):
         x_coordinates = []
         y_coordinates = []

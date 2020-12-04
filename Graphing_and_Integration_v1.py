@@ -2,7 +2,7 @@
 """
 Created on Mon Apr 27 22:47:06 2020
 
-@author: Luca Hategan
+@author: Luca 
 @version: 1.0
 
 A script designed to graph and process the Euclidean distance data produced from the ED_V2 script

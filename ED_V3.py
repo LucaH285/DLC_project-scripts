@@ -16,7 +16,7 @@ class InitializeVars:
         self.Source = r''
         self.BodyParts = []
         self.CutOff = 0
-        
+
     def populate(self, Path, BodyPartList, PValCutOff):
         self.Source = Path
         self.BodyParts = BodyPartList
@@ -29,11 +29,11 @@ class FileImport:
             if files.endswith(".csv"):
                 CSVFileList.append(pd.read_csv(files))
         return(CSVFileList)
-                    
+
     def ImportFunction_IfFile(self, Source):
         CSVFileList = [pd.read_csv(Source)]
         return(CSVFileList)
-    
+
 class FileExport:
     """
     Export to same location as import
@@ -46,7 +46,7 @@ class initVars(ABC):
     @abstractmethod
     def VarLoads(self, Init):
         pass
-    
+
 class Imports(ABC):
     @abstractmethod
     def InheritImport(self, importFxn):
@@ -55,14 +55,14 @@ class Imports(ABC):
 class Export(ABC):
     def InheritExport(self):
         pass
-    
+
 class ComputeEuclideanDistance(initVars, Imports):
     def InheritImport(self, Import, ImportSource):
         if os.path.isdir(ImportSource) is True:
             return(importFxn.ImportFunction_IfPath(ImportSource))
         elif os.path.isdir(ImportSource) is False:
             return(importFxn.ImportFunction_IfFile(ImportSource))
-    
+
     def preprocessFrame(self, InputDataFrame):
         ResetColNames = {
             InputDataFrame.columns.values[Int]:Int for Int in range(len(InputDataFrame.columns.values))
@@ -75,39 +75,36 @@ class ComputeEuclideanDistance(initVars, Imports):
         BodyParts = [Names for Names in BodyParts if Names != "bodyparts"]
         TrimmedFrame = InputDataFrame.iloc[2:,]
         return(TrimmedFrame, BodyParts)
-    
+
     def checkPvals(self, InputDataFrame, CutOff):
         for Cols in InputDataFrame.columns.values:
             if Cols % 3 == 0:
-                for Vals in range(len(InputDataFrame[Cols])):
-                    if Vals < CutOff:
-                        
-                        
-                    
-    
+                for Vals in InputDataFrame.index.values:
+                    if float(InputDataFrame[Cols][Vals]) < CutOff:
+                        #Using Iloc/loc here like that will take the whole row, all body parts.
+                        #You can use the loc[row, column] to specify the columns, this should work
+                        XCoordinates = Cols - 3
+                        PValScore = Cols
+                        PreviousRow = InputDataFrame.loc[Vals - 1, XCoordinates:PValScore]
+                        InputDataFrame.loc[Vals, XCoordinates:PValScore] = PreviousRow
+        return(InputDataFrame)
+
+    def checkLabel(self, InputDataFrame):
+        
+
     def VarLoads(self, Init):
         DLCFrame = self.InheritImport(importFxn, ImportSource=Init.Source)
         DLCFrames = [self.preprocessFrame(InputDataFrame=Frames) for Frames in DLCFrame]
-        for Frames in DLCFrames:
-            self.checkPvals(Frames[0])
-        return(DLCFrames)
-        
-        
-        
-        
-
+        PValCorrectedFrames = [self.checkPvals(InputDataFrame = Frames[0], CutOff = Init.CutOff) for Frames in DLCFrames]
+        PValCorrectedFrames[0].to_csv("Test.csv")
+        return(PValCorrectedFrames)
 
 
 if __name__ == '__main__':
     Init = InitializeVars()
-    Init.populate(Path=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
+    Init.populate(Path="/Users/lucahategan/Desktop/For work/work files/drive-download-20200528T164242Z-001/002701_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
                   BodyPartList=["nose", "head", "body", "tail"], PValCutOff=0.95)
-    
+
     importFxn = FileImport()
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")
-    ComputeEuclideanDistance().VarLoads(Init)
-
-        
-        
-    
-            
+    print(ComputeEuclideanDistance().VarLoads(Init))

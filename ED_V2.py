@@ -9,6 +9,21 @@ import pandas as pd
 import numpy as np
 import os
 
+class ImportVars:
+    def __init__(self):
+        self.Source = []
+        self.BodyParts = []
+        self.PValCutoff = 0.95
+
+    def populate(self, Path, BodyPartNames, Pval):
+        self.Source = Path
+        self.BodyParts = BodyPartNames
+        self.PValCutoff = Pval
+
+
+
+
+
 class Euclidean_Distance():
     source = []
     body_part_names = []
@@ -45,7 +60,7 @@ class Euclidean_Distance():
         return files
     def export_location(self, export, name = '', sep = ',', index = False):
         ex = export.to_csv(name, sep = sep, index = index)
-        return ex  
+        return ex
     def error_checking(self, probability_vector, coordinate_vector):
         for probs in range(len(probability_vector)):
             if probability_vector[probs] < (float(self.cut_off)):
@@ -55,10 +70,10 @@ class Euclidean_Distance():
                             coordinate_vector[x] = coordinate_vector[x]
                         else:
                             coordinate_vector[x] = coordinate_vector[probs-1]
-        return coordinate_vector    
+        return coordinate_vector
     def Euclidean_distance(self, coordinates):
         map_fxn_1 = map(
-            lambda x, y: np.square(np.subtract(x, y)), coordinates[:-1], coordinates[1:] 
+            lambda x, y: np.square(np.subtract(x, y)), coordinates[:-1], coordinates[1:]
             )
         return list(map_fxn_1)
     def Euclidean_distance_2(self, x_cors, y_cors):
@@ -109,7 +124,7 @@ class Euclidean_Distance():
         return Split_x, Split_y, Split_likelihood
     def Compute_Euclidean(self):
         files = self.file_locations()
-        if len(self.source) == 1:        
+        if len(self.source) == 1:
             for files1, sources in zip(files, range(len(self.source))):
                 os.chdir(str(self.source[sources]))
                 for i_files in files1:
@@ -128,7 +143,7 @@ class Euclidean_Distance():
                         ############
                         comp_1_x = self.Euclidean_distance(Error_check_x_cor)
                         comp_1_y = self.Euclidean_distance(Error_check_y_cor)
-                        
+
                         comp_2 = self.Euclidean_distance_2(comp_1_x, comp_1_y)
                         print("computation finished")
                         Master_lis.append(comp_2)
@@ -161,7 +176,7 @@ class Euclidean_Distance():
                         ############
                         comp_1_x = self.Euclidean_distance(Error_check_x_cor)
                         comp_1_y = self.Euclidean_distance(Error_check_y_cor)
-                        
+
                         comp_2 = self.Euclidean_distance_2(comp_1_x, comp_1_y)
                         print("computation finished")
                         Master_lis.append(comp_2)
@@ -180,8 +195,9 @@ class Euclidean_Distance():
 ##############
 #Class calling
 ##############
-ED=Euclidean_Distance()
-ED.source = [r'C:\Users\Desktop\Desktop\work\20191205-20200507T192029Z-001\20191205\Test2']
-ED.cut_off = 0.95
-ED.body_part_names = ["Head", "Neck", "Back", "Tail", "back_right_leg","back_left_leg", "front_right_leg", "front_left_leg"]
-print(ED.Compute_Euclidean())
+if __name__ == "__main__":
+    ED=Euclidean_Distance()
+    ED.source = [r'C:\Users\Desktop\Desktop\work\20191205-20200507T192029Z-001\20191205\Test2']
+    ED.cut_off = 0.95
+    ED.body_part_names = ["Head", "Neck", "Back", "Tail", "back_right_leg","back_left_leg", "front_right_leg", "front_left_leg"]
+    print(ED.Compute_Euclidean())

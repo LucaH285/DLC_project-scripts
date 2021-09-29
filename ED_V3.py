@@ -10,6 +10,8 @@ import os
 from abc import ABC, abstractmethod
 import seaborn as sns
 import time
+from collections import OrderedDict
+import matplotlib.pyplot as mp
 
 class InitializeVars:
     def __init__(self):
@@ -71,7 +73,7 @@ class ComputeEuclideanDistance(initVars, Imports):
         """
         Retrieve body parts .iloc[row, column]
         """
-        BodyParts = list(set(InputDataFrame.iloc[0,]))
+        BodyParts = list(OrderedDict.fromkeys(list(InputDataFrame.iloc[0,])))
         BodyParts = [Names for Names in BodyParts if Names != "bodyparts"]
         TrimmedFrame = InputDataFrame.iloc[2:,]
         return(TrimmedFrame, BodyParts)
@@ -89,20 +91,37 @@ class ComputeEuclideanDistance(initVars, Imports):
                         InputDataFrame.loc[Vals, XCoordinates:PValScore] = PreviousRow
         return(InputDataFrame)
 
-    def checkLabel(self, InputDataFrame):
+    def computeEuclidean(self, InputDataFrame, BodyParts):
+        DistanceVectors = [[] for _ in range(len(BodyParts))]
+        ColsToDrop = [Cols for Cols in InputDataFrame.columns.values if Cols % 3 == 0]
+        InputDataFrame = InputDataFrame.drop(ColsToDrop, axis = 1)
+        Counter = 0
+        for Cols1, Cols2 in zip(InputDataFrame.columns.values[:-1], InputDataFrame.columns.values[1:]):
+            if Cols2 - Cols1 == 1:
+                for XCoords, YCoords in zip(range(len(InputDataFrame[Cols1]) - 1), range(len(InputDataFrame[Cols2]) - 1)):
+                    Function = np.sqrt(((float(InputDataFrame[Cols1].iloc[XCoords + 1]) - float(InputDataFrame[Cols1].iloc[XCoords]))**2) + ((float(InputDataFrame[Cols2].iloc[YCoords + 1]) - float(InputDataFrame[Cols2].iloc[YCoords]))**2))
+                    DistanceVectors[Counter].append(Function)
+                Counter += 1
+            else:
+                pass
+        DataStructure = {
+            BodyParts[Rng]:DistanceVectors[Rng] for Rng in range(len(DistanceVectors)) 
+            }
+        EuclideanDistanceDF = pd.DataFrame(DataStructure)
+        return(EuclideanDistanceDF)
         
-
     def VarLoads(self, Init):
         DLCFrame = self.InheritImport(importFxn, ImportSource=Init.Source)
         DLCFrames = [self.preprocessFrame(InputDataFrame=Frames) for Frames in DLCFrame]
         PValCorrectedFrames = [self.checkPvals(InputDataFrame = Frames[0], CutOff = Init.CutOff) for Frames in DLCFrames]
-        PValCorrectedFrames[0].to_csv("Test.csv")
-        return(PValCorrectedFrames)
-
+        EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
+                                   for Rng in range(len(PValCorrectedFrames))]
+        self.plotMouseMovement(PValCorrectedFrames[0])
+        return(EuclideanDistanceFrames)
 
 if __name__ == '__main__':
     Init = InitializeVars()
-    Init.populate(Path="/Users/lucahategan/Desktop/For work/work files/drive-download-20200528T164242Z-001/002701_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
+    Init.populate(Path=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
                   BodyPartList=["nose", "head", "body", "tail"], PValCutOff=0.95)
 
     importFxn = FileImport()

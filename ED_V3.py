@@ -14,15 +14,11 @@ from collections import OrderedDict
 import matplotlib.pyplot as mp
 
 class InitializeVars:
-    def __init__(self):
-        self.Source = r''
-        self.BodyParts = []
-        self.CutOff = 0
-
-    def populate(self, Path, BodyPartList, PValCutOff):
+    def __init__(self, Path, BodyPartList, PValCutOff, ExportSource):
         self.Source = Path
         self.BodyParts = BodyPartList
         self.CutOff = PValCutOff
+        self.ExportSource = ExportSource
 
 class FileImport:
     def ImportFunction_IfPath(self, Source):
@@ -58,7 +54,7 @@ class Export(ABC):
     def InheritExport(self):
         pass
 
-class ComputeEuclideanDistance(initVars, Imports):
+class ComputeEuclideanDistance(initVars, Imports, Export):
     def InheritImport(self, Import, ImportSource):
         if os.path.isdir(ImportSource) is True:
             return(importFxn.ImportFunction_IfPath(ImportSource))
@@ -109,21 +105,47 @@ class ComputeEuclideanDistance(initVars, Imports):
             }
         EuclideanDistanceDF = pd.DataFrame(DataStructure)
         return(EuclideanDistanceDF)
-        
+
     def VarLoads(self, Init):
         DLCFrame = self.InheritImport(importFxn, ImportSource=Init.Source)
         DLCFrames = [self.preprocessFrame(InputDataFrame=Frames) for Frames in DLCFrame]
         PValCorrectedFrames = [self.checkPvals(InputDataFrame = Frames[0], CutOff = Init.CutOff) for Frames in DLCFrames]
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
-        self.plotMouseMovement(PValCorrectedFrames[0])
         return(EuclideanDistanceFrames)
 
+class hourlySum(initVars, Export):
+    def InheritExport(self, ExportFile, ExportSource, FileName):
+        return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
+    
+    def hourlySumFunction(self, IndFrames, BodyParts):
+        sumVectors = [[] for _ in range(len(IndFrames.columns.values))]
+        for Col, rng in zip(IndFrames.columns.values, range(len(IndFrames.columns.values))):
+            SumFunction = sum(IndFrames[Col])
+            sumVectors[rng].append(SumFunction)
+        
+        return(sumVectors)
+            
+    def VarLoads(self, Init, EuclideanDistanceFrame, BodyParts):
+        for Frames in EuclideanDistanceFrame:
+            print(self.hourlySumFunction(IndFrames=Frames))
+        return("None")
+        
+        
+        
+    
+        
+
 if __name__ == '__main__':
-    Init = InitializeVars()
-    Init.populate(Path=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
-                  BodyPartList=["nose", "head", "body", "tail"], PValCutOff=0.95)
+    Init = InitializeVars(
+        Path=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
+        BodyPartList=["nose", "head", "body", "tail"], 
+        PValCutOff=0.95, ExportSource=r""
+        )
 
     importFxn = FileImport()
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")
-    print(ComputeEuclideanDistance().VarLoads(Init))
+    EuclideanDistanceFrames = ComputeEuclideanDistance().VarLoads(Init)
+    
+    hourlySum().VarLoads(Init, EuclideanDistanceFrame=EuclideanDistanceFrames)
+    

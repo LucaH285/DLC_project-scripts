@@ -26,7 +26,7 @@ class FileImport:
         CSVFileList = []
         for files in os.listdir(Source):
             if files.endswith(".csv"):
-                CSVFileList.append(pd.read_csv(files))
+                CSVFileList.append(pd.read_csv("{0}/{1}".format(Source, files)))
         return(CSVFileList)
 
     def ImportFunction_IfFile(self, Source):
@@ -117,15 +117,10 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
     def createMovementPlot(self, InputDataFrame):
         mp.xlim(0, 480)
         mp.ylim(0, 360)
-        #mp.scatter(x=[float(Vals) for Vals in InputDataFrame[1]], y=[float(Vals) for Vals in InputDataFrame[2]])
-        #mp.scatter(x=[float(Vals) for Vals in InputDataFrame[4]], y=[float(Vals) for Vals in InputDataFrame[5]])
-        #mp.scatter(x=[float(Vals) for Vals in InputDataFrame[7]], y=[float(Vals) for Vals in InputDataFrame[8]])
-        #mp.scatter(x=[float(Vals) for Vals in InputDataFrame[10]], y=[float(Vals) for Vals in InputDataFrame[11]])
         Counter = 1
-        for Cols in range(len(InputDataFrame.columns.values) - 1):
+        while(Counter < max(InputDataFrame.columns.values)):
             mp.scatter(x=[float(vals) for vals in InputDataFrame[Counter]], y=[float(vals) for vals in InputDataFrame[Counter + 1]])
             Counter += 3
-
         mp.show()
 
     def VarLoads(self, Init):
@@ -135,7 +130,9 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
         self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
-        BodyPartLists = [Lists[1] for Lists in DLCFrames]
+        #return only the body part list of the first frame, should be the same as all others if dealing with path.
+        #come up with a better way to do this though
+        BodyPartLists = DLCFrames[0][1]
         for Rng in range(len(EuclideanDistanceFrames)):
             self.InheritExport(EuclideanDistanceFrames[Rng], Init.ExportSource, "ED_Frame_{0}.csv".format(Rng))
         return(EuclideanDistanceFrames, BodyPartLists)
@@ -145,40 +142,45 @@ class hourlySum(initVars, Export):
         return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
 
     def hourlySumFunction(self, IndFrames, BodyParts):
-        sumVectors = [[] for _ in range(len(IndFrames.columns.values))]
+        sumVectors = []
         for Col, rng in zip(IndFrames.columns.values, range(len(IndFrames.columns.values))):
             SumFunction = sum(IndFrames[Col])
-            sumVectors[rng].append(SumFunction)
-        DataStructure = {
-            BodyParts[Rng]:sumVectors[Rng] for Rng in range(len(sumVectors))
-            }
-        HourlySumFrame = pd.DataFrame(DataStructure)
-        HourlySumFrame.index.name = "Hour"
-        return(HourlySumFrame)
+            sumVectors.append(SumFunction)
+        return(sumVectors)
 
     def VarLoads(self, Init, EuclideanDistanceFrame, BodyParts):
         HourlySumFrames = [self.hourlySumFunction(IndFrames=EuclideanDistanceFrame[Rng], BodyParts=BodyParts[Rng])
                            for Rng in range(len(EuclideanDistanceFrame))]
+        HourlySumFrame = pd.DataFrame(HourlySumFrames, columns = BodyParts)
         for Rng in range(len(HourlySumFrames)):
             self.InheritExport(HourlySumFrames[Rng], Init.ExportSource, "HourlySumFrame_{0}.csv".format(Rng))
-        return(HourlySumFrames)
+        return(HourlySumFrame)
 
 class mathFunctions(initVars, Export):
     def InheritExport(self, ExportFile, ExportSource, FileName):
         return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
-
-
+    
+    def createLinearEquations(self, IndFrames):
+        for Cols in IndFrames:
+            for HSum, Index in zip(range(len(IndFrames[Cols]) - 1), range(len(IndFrames[Cols].index.values) - 1)):
+                Slope = (IndFrames[Cols][HSum + 1] - IndFrames[Cols][HSum])/(IndFrames[Cols].index.values[Index + 1] - IndFrames[Cols].index.values[Index])
+                print(Slope)
+                time.sleep(3)
+                breakpoint()
+                
+    def VarLoads(self, Init, InputHourlySumFrame):
+        LinearEquations = [self.createLinearEquations(IndFrames = Frames) for Frames in InputHourlySumFrame]
 
 
 if __name__ == '__main__':
     Init = InitializeVars(
-        Path="/Users/lucahategan/Desktop/For work/work files/drive-download-20200528T164242Z-001/002701_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
+        Path=r"F:\work\20191205-20200507T192029Z-001\20191205\Test",
         BodyPartList=["nose", "head", "body", "tail"],
         PValCutOff=0.95, ExportSource=""
         )
-
     importFxn = FileImport()
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")
     EuclideanDistanceFrames = ComputeEuclideanDistance().VarLoads(Init)
-
-    hourlySum().VarLoads(Init, EuclideanDistanceFrame=EuclideanDistanceFrames[0], BodyParts=EuclideanDistanceFrames[1])
+    
+    HourlySumFrame = hourlySum().VarLoads(Init, EuclideanDistanceFrame=EuclideanDistanceFrames[0], BodyParts=EuclideanDistanceFrames[1])
+    mathFunctions().VarLoads(Init, InputHourlySumFrame=HourlySumFrame)

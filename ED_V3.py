@@ -12,6 +12,7 @@ import seaborn as sns
 import time
 from collections import OrderedDict
 import matplotlib.pyplot as mp
+import scipy.integrate as integrate
 import warnings
 
 class InitializeVars:
@@ -129,7 +130,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         PValCorrectedFrames = [self.checkPvals(InputDataFrame = Frames[0], CutOff = Init.CutOff) for Frames in DLCFrames]
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
-        self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
+        #self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
         #return only the body part list of the first frame, should be the same as all others if dealing with path.
         #come up with a better way to do this though
         BodyPartLists = DLCFrames[0][1]
@@ -141,17 +142,26 @@ class hourlySum(initVars, Export):
     def InheritExport(self, ExportFile, ExportSource, FileName):
         return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
 
-    def hourlySumFunction(self, IndFrames, BodyParts):
+    def hourlySumFunction(self, IndFrames):
         sumVectors = []
         for Col, rng in zip(IndFrames.columns.values, range(len(IndFrames.columns.values))):
             SumFunction = sum(IndFrames[Col])
             sumVectors.append(SumFunction)
         return(sumVectors)
+    
+    def graphSums(self, InputFrame):
+        for Cols in InputFrame.columns.values:
+            mp.plot(InputFrame.index.values, InputFrame[Cols], label=Cols)
+        mp.xlabel("Hour of Day")
+        mp.ylabel("Total Motility per hour")
+        mp.legend()
+        mp.show()
 
     def VarLoads(self, Init, EuclideanDistanceFrame, BodyParts):
-        HourlySumFrames = [self.hourlySumFunction(IndFrames=EuclideanDistanceFrame[Rng], BodyParts=BodyParts[Rng])
+        HourlySumFrames = [self.hourlySumFunction(IndFrames=EuclideanDistanceFrame[Rng])
                            for Rng in range(len(EuclideanDistanceFrame))]
         HourlySumFrame = pd.DataFrame(HourlySumFrames, columns = BodyParts)
+        self.graphSums(InputFrame=HourlySumFrame)
         for Rng in range(len(HourlySumFrames)):
             self.InheritExport(HourlySumFrames[Rng], Init.ExportSource, "HourlySumFrame_{0}.csv".format(Rng))
         return(HourlySumFrame)
@@ -161,26 +171,54 @@ class mathFunctions(initVars, Export):
         return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
     
     def createLinearEquations(self, IndFrames):
-        for Cols in IndFrames:
-            for HSum, Index in zip(range(len(IndFrames[Cols]) - 1), range(len(IndFrames[Cols].index.values) - 1)):
-                Slope = (IndFrames[Cols][HSum + 1] - IndFrames[Cols][HSum])/(IndFrames[Cols].index.values[Index + 1] - IndFrames[Cols].index.values[Index])
-                print(Slope)
-                time.sleep(3)
-                breakpoint()
-                
+        SlopeLists = [[] for _ in range(len(IndFrames.columns.values))]
+        if len(IndFrames.index.values) > 1:
+            for Cols, rng in zip(IndFrames, range(len(IndFrames))):
+                for HSum, Index in zip(range(len(IndFrames[Cols]) - 1), range(len(IndFrames[Cols].index.values) - 1)):
+                    Slope = (IndFrames[Cols][HSum + 1] - IndFrames[Cols][HSum])/(IndFrames[Cols].index.values[Index + 1] - IndFrames[Cols].index.values[Index])
+                    Intercept = IndFrames[Cols][HSum] - (Slope * IndFrames[Cols].index.values[Index])
+                    SlopeLists[rng].append((Slope, Intercept))
+        elif len(IndFrames.index.values) == 1:
+            pass
+        return(SlopeLists)
+    
+    def integrateLinearFunctions(self, LinearEquation):
+        IntegralValues = [[] for _ in range(len(LinearEquation))]
+        for BodyParts, rng in zip(LinearEquation, range(len(LinearEquation))):
+            for SIvals in BodyParts:
+                Function = lambda x, a, b: a*x + b
+                Integral = integrate.quad(Function, 0, 1, args=(SIvals[0], SIvals[1]))
+                IntegralValues[rng].append(abs(Integral[0]))
+        return(IntegralValues)
+    
+    def visualizeArea(self, IntegralFrame):
+        X_Axis = range(len(IntegralFrame))
+        X_Axis = np.arange(len(X_Axis))
+        fig, ax = mp.subplots()
+        Width = -0.2
+        for cols in IntegralFrame.columns.values:
+            ax.bar(x=X_Axis+Width, height=IntegralFrame[cols], width=0.1, label=str(cols))
+            Width += 0.1
+        ax.legend()
+        mp.show()
+        
     def VarLoads(self, Init, InputHourlySumFrame):
-        LinearEquations = [self.createLinearEquations(IndFrames = Frames) for Frames in InputHourlySumFrame]
-
+        LinearEquations = self.createLinearEquations(IndFrames = InputHourlySumFrame)
+        Integrals = self.integrateLinearFunctions(LinearEquation=LinearEquations)
+        DataStructure = {
+            InputHourlySumFrame.columns.values[rng]:Integrals[rng] for rng in range(len(Integrals))
+            }
+        IntegralFrame = pd.DataFrame(DataStructure)
+        self.visualizeArea(IntegralFrame=IntegralFrame)
 
 if __name__ == '__main__':
     Init = InitializeVars(
-        Path=r"F:\work\20191205-20200507T192029Z-001\20191205\Test",
+        Path=r"F:\work\20191205-20200507T192029Z-001\20191205",
         BodyPartList=["nose", "head", "body", "tail"],
         PValCutOff=0.95, ExportSource=""
         )
     importFxn = FileImport()
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")
     EuclideanDistanceFrames = ComputeEuclideanDistance().VarLoads(Init)
-    
     HourlySumFrame = hourlySum().VarLoads(Init, EuclideanDistanceFrame=EuclideanDistanceFrames[0], BodyParts=EuclideanDistanceFrames[1])
     mathFunctions().VarLoads(Init, InputHourlySumFrame=HourlySumFrame)

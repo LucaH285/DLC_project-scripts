@@ -16,11 +16,12 @@ import scipy.integrate as integrate
 import warnings
 
 class InitializeVars:
-    def __init__(self, Path, BodyPartList, PValCutOff, ExportSource):
+    def __init__(self, Path, BodyPartList, PValCutOff, ExportSource, FramesPerSecond):
         self.Source = Path
         self.BodyParts = BodyPartList
         self.CutOff = PValCutOff
         self.ExportSource = ExportSource
+        self.FPS = FramesPerSecond
 
 class FileImport:
     def ImportFunction_IfPath(self, Source):
@@ -114,6 +115,22 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
             }
         EuclideanDistanceDF = pd.DataFrame(DataStructure)
         return(EuclideanDistanceDF)
+    
+    def checkSpeedDistance(self, EuclideanDistanceFrame, FPS):
+        OutlierFrames = [[] for _ in range(len(EuclideanDistanceFrame.columns.values))]
+        VelocityDict = {
+            EuclideanDistanceFrame.columns.values[rng]:[] for rng in range(len(EuclideanDistanceFrame.columns.values))
+            }
+        for Cols in EuclideanDistanceFrame:
+            for VecDistance in EuclideanDistanceFrame[Cols]:
+                Velocity = lambda Dist, Time: Dist/Time
+                #Velocity in pixels per second
+                ComputedVelocity = Velocity(Dist = float(VecDistance), Time = float(1/FPS))
+                VelocityDict[Cols].append(ComputedVelocity)
+        mp.plot(range(len(VelocityDict["head"])), VelocityDict["head"], linestyle='solid')        
+        mp.show()
+        print(VelocityDict)
+        breakpoint()
 
     def createMovementPlot(self, InputDataFrame):
         mp.xlim(0, 480)
@@ -133,6 +150,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         #self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
         #return only the body part list of the first frame, should be the same as all others if dealing with path.
         #come up with a better way to do this though
+        self.checkSpeedDistance(EuclideanDistanceFrame=EuclideanDistanceFrames[0], FPS = Init.FPS)
         BodyPartLists = DLCFrames[0][1]
         for Rng in range(len(EuclideanDistanceFrames)):
             self.InheritExport(EuclideanDistanceFrames[Rng], Init.ExportSource, "ED_Frame_{0}.csv".format(Rng))
@@ -215,7 +233,7 @@ if __name__ == '__main__':
     Init = InitializeVars(
         Path=r"F:\work\20191205-20200507T192029Z-001\20191205",
         BodyPartList=["nose", "head", "body", "tail"],
-        PValCutOff=0.95, ExportSource=""
+        PValCutOff=0.95, ExportSource="", FramesPerSecond = 4
         )
     importFxn = FileImport()
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")

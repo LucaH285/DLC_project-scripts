@@ -85,6 +85,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         return(TrimmedFrame, BodyParts)
 
     def checkPvals(self, InputDataFrame, CutOff):
+        InputDataFrame=InputDataFrame.reset_index(drop = True)
         for Cols in InputDataFrame.columns.values:
             if Cols % 3 == 0:
                 for Vals in InputDataFrame.index.values:
@@ -93,8 +94,12 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                         #You can use the loc[row, column] to specify the columns, this should work
                         XCoordinates = Cols - 3
                         PValScore = Cols
-                        PreviousRow = InputDataFrame.loc[Vals - 1, XCoordinates:PValScore]
-                        InputDataFrame.loc[Vals, XCoordinates:PValScore] = PreviousRow
+                        if (Vals != 0):
+                            PreviousRow = InputDataFrame.loc[Vals - 1, XCoordinates:PValScore]
+                            InputDataFrame.loc[Vals, XCoordinates:PValScore] = PreviousRow
+                        elif (Vals == 0):
+                            #Some logic to control for the first index value containing a p-val < 0.95
+                            pass
         return(InputDataFrame)
 
     def computeEuclidean(self, InputDataFrame, BodyParts):
@@ -119,18 +124,36 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
     def checkSpeedDistance(self, EuclideanDistanceFrame, FPS):
         OutlierFrames = [[] for _ in range(len(EuclideanDistanceFrame.columns.values))]
         VelocityDict = {
-            EuclideanDistanceFrame.columns.values[rng]:[] for rng in range(len(EuclideanDistanceFrame.columns.values))
+            EuclideanDistanceFrame.columns.values[rng]:[[], []] for rng in range(len(EuclideanDistanceFrame.columns.values))
             }
         for Cols in EuclideanDistanceFrame:
+            Time = 1/FPS
             for VecDistance in EuclideanDistanceFrame[Cols]:
                 Velocity = lambda Dist, Time: Dist/Time
                 #Velocity in pixels per second
                 ComputedVelocity = Velocity(Dist = float(VecDistance), Time = float(1/FPS))
-                VelocityDict[Cols].append(ComputedVelocity)
-        mp.plot(range(len(VelocityDict["head"])), VelocityDict["head"], linestyle='solid')        
+                VelocityDict[Cols][0].append(Time)
+                VelocityDict[Cols][1].append(ComputedVelocity)
+                Time += 1/FPS
+        AccelerationDict = {
+            EuclideanDistanceFrame.columns.values[rng]:[[], []] for rng in range(len(EuclideanDistanceFrame.columns.values))
+            }      
+        for Keys in VelocityDict:
+            Time2 = 1/FPS
+            for Time, Velocity in zip(range(len(VelocityDict[Keys][0]) - 1), range(len(VelocityDict[Keys][1]) - 1)):
+                Acceleration = lambda Vo, Vf, To, Tf: ((Vf - Vo)/(Tf - To))
+                ComputedAcceleration = Acceleration(Vo=VelocityDict[Keys][1][Velocity], Vf = VelocityDict[Keys][1][Velocity + 1],
+                                                    To = VelocityDict[Keys][0][Time], Tf = VelocityDict[Keys][0][Time + 1])
+                AccelerationDict[Keys][0].append(Time2)
+                AccelerationDict[Keys][1].append(ComputedAcceleration)
+                Time2 += 1/FPS
+        fig, ax = mp.subplots()
+        ax.plot(AccelerationDict["Body"][0], AccelerationDict["Body"][1], linestyle='solid', label="Acceleration", color="red") 
+        ax.plot(VelocityDict["Body"][0], VelocityDict["Body"][1], linestyle='solid', label = "Velocity")
+        mp.xlabel("Elapsed Time, seconds")
+        mp.ylabel("Acceleration (pixels/s^2) and Velocity (pixels/s)")
+        ax.legend()
         mp.show()
-        print(VelocityDict)
-        breakpoint()
 
     def createMovementPlot(self, InputDataFrame):
         mp.xlim(0, 480)
@@ -148,9 +171,9 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
         #self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
+        self.checkSpeedDistance(EuclideanDistanceFrame=EuclideanDistanceFrames[4], FPS = Init.FPS)
         #return only the body part list of the first frame, should be the same as all others if dealing with path.
         #come up with a better way to do this though
-        self.checkSpeedDistance(EuclideanDistanceFrame=EuclideanDistanceFrames[0], FPS = Init.FPS)
         BodyPartLists = DLCFrames[0][1]
         for Rng in range(len(EuclideanDistanceFrames)):
             self.InheritExport(EuclideanDistanceFrames[Rng], Init.ExportSource, "ED_Frame_{0}.csv".format(Rng))
@@ -179,7 +202,10 @@ class hourlySum(initVars, Export):
         HourlySumFrames = [self.hourlySumFunction(IndFrames=EuclideanDistanceFrame[Rng])
                            for Rng in range(len(EuclideanDistanceFrame))]
         HourlySumFrame = pd.DataFrame(HourlySumFrames, columns = BodyParts)
-        self.graphSums(InputFrame=HourlySumFrame)
+        if len(HourlySumFrame.index.values) > 1:
+            self.graphSums(InputFrame=HourlySumFrame)
+        else:
+            warnings.warn("Only a single .csv file was inputted for processing, cannot make a movement by hour graph!")
         for Rng in range(len(HourlySumFrames)):
             self.InheritExport(HourlySumFrames[Rng], Init.ExportSource, "HourlySumFrame_{0}.csv".format(Rng))
         return(HourlySumFrame)
@@ -231,7 +257,7 @@ class mathFunctions(initVars, Export):
 
 if __name__ == '__main__':
     Init = InitializeVars(
-        Path=r"F:\work\20191205-20200507T192029Z-001\20191205",
+        Path=r"F:\work\TestVideos_NewNetwork\20191206-20200507T194022Z-001\20191206\RawVids",
         BodyPartList=["nose", "head", "body", "tail"],
         PValCutOff=0.95, ExportSource="", FramesPerSecond = 4
         )
@@ -239,4 +265,8 @@ if __name__ == '__main__':
     # importFxn.ImportFunction_IfFile(Source=r"F:\work\20191205-20200507T192029Z-001\20191205\162658_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv")
     EuclideanDistanceFrames = ComputeEuclideanDistance().VarLoads(Init)
     HourlySumFrame = hourlySum().VarLoads(Init, EuclideanDistanceFrame=EuclideanDistanceFrames[0], BodyParts=EuclideanDistanceFrames[1])
-    mathFunctions().VarLoads(Init, InputHourlySumFrame=HourlySumFrame)
+    print(HourlySumFrame)
+    if len(HourlySumFrame.index.values) > 1:
+        mathFunctions().VarLoads(Init, InputHourlySumFrame=HourlySumFrame)
+    else:
+        warnings.warn("Only a single .csv file was inputted for processing, cannot compute integrals or linearity!")

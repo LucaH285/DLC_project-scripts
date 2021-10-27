@@ -14,6 +14,7 @@ from collections import OrderedDict
 import matplotlib.pyplot as mp
 import scipy.integrate as integrate
 import warnings
+import math
 
 class InitializeVars:
     def __init__(self, Path, BodyPartList, PValCutOff, ExportSource, FramesPerSecond):
@@ -103,16 +104,54 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         return(InputDataFrame)
     
     def createSkeleton(self, InputDataFrame, BodyParts):
+        print(InputDataFrame[[1]], InputDataFrame[[2]])
         OutlierFrames = []
         #Create vectors between body parts
         #Here we're dealing with 4 labels
+        #################
+        #Lambda Functions
+        #################
         CoordVector = lambda X1, X2, Y1, Y2: [X2 - X1, Y2 - Y1]
         Norm = lambda Vec: np.sqrt(sum(x ** 2 for x in Vec))
         Normalize = lambda X, Mu, Sig: ((X - Mu)/Sig)
-        LogScale = lambda X: np.log(X)
-        ComputeVectorAngle = lambda Vec1, Vec2: np.arccos(np.sum(i * j for i, j in zip(Vec1, Vec2))/(np.sqrt(np.sum(i**2 for i in Vec1)) * (np.sqrt(np.sum(j**2 for j in Vec2)))))
+        LogScale = lambda X: np.log10(X)
+        CreateVector = lambda Coord1, Coord2: [(float(y) - float(x)) for x, y in zip(Coord1, Coord2)]
+        ComputeVectorAngle = lambda Vec1, Vec2: math.degrees(np.arccos(np.sum(float(i) * float(j) for i, j in zip(Vec1, Vec2))/(np.sqrt(np.sum(float(i)**2 for i in Vec1)) * (np.sqrt(np.sum(float(j)**2 for j in Vec2))))))
         # VectorAngles = lambda x, y: np.arccos((i * j for i, j in zip(x, y))/())
+        #################
+        
         InputDataFrame = InputDataFrame.drop([Cols for Cols in InputDataFrame.columns.values if Cols % 3 == 0], axis=1)
+        CoordDict = {
+            BodyParts[Ind]:[] for Ind in range(len(BodyParts))
+            }
+        DictPointer = 0
+        for Cols in range(len(InputDataFrame.columns.values) - 1):
+            if ((InputDataFrame.columns.values[Cols + 1]) - InputDataFrame.columns.values[Cols]) == 1:
+                FrameCol1 = InputDataFrame.columns.values[Cols]
+                FrameCol2 = InputDataFrame.columns.values[Cols + 1]
+                CoordDict[BodyParts[DictPointer]] = [(x, y) for x, y in zip(InputDataFrame[FrameCol1], InputDataFrame[FrameCol2])]
+                DictPointer += 1
+        ComputeVectors = list(map(CreateVector, CoordDict["Head"], CoordDict["Body"]))
+        ComputeVectors2 = list(map(CreateVector, CoordDict["Body"], CoordDict["Tail"]))
+        ComputeAngles = list(map(ComputeVectorAngle, ComputeVectors, ComputeVectors2))
+        ComputeNorm = list(map(Norm, ComputeVectors))
+        ComputeNorm2 = list(map(Norm, ComputeVectors2))
+        LogNorm = list(map(LogScale, ComputeNorm))
+        LogNorm2 = list(map(LogScale, ComputeNorm2))
+        print(ComputeNorm[0:3])
+        print(LogNorm[0:3])
+        mp.hist(LogNorm, bins=25, color = "Blue", label="Head-Body Vector")
+        mp.hist(LogNorm2, bins=25, color="green", label="Body-Tail Vector")
+        mp.xlabel("log-scaled Euclidean distance")
+        mp.ylabel("Frequency in frames")
+        mp.title("log-scaled ED vs. Frequency distribution")
+        mp.legend()
+        mp.show()
+        mp.hist(ComputeAngles, bins=25, color="red")
+        mp.xlabel("Angle (degrees)")
+        mp.ylabel("Frequency in frames")
+        mp.title("Head-Body and Body-Tail vector angle vs. Frequency of occurance")
+        mp.show()
         InputDataFrame = InputDataFrame.rename(columns={InputDataFrame.columns.values[i]:i for i in range(len(InputDataFrame.columns.values))}).apply(pd.to_numeric)
         Counter = 0
         while(Counter < len(InputDataFrame.columns.values) - 3):
@@ -121,21 +160,15 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
             SomeMap2 = list(map(Norm, SomeMap))
             Normal = list(map(Normalize, SomeMap2, [np.mean(SomeMap2)]*len(SomeMap2), [np.std(SomeMap2)]*len(SomeMap2)))
             LogScaled = [list(map(LogScale, SomeMap2))]
-            AngleList = []
-            for i in range(len(InputDataFrame[Counter])):
-                Angles = list(map(ComputeVectorAngle, [InputDataFrame[Counter][i], InputDataFrame[Counter + 1][i]], [InputDataFrame[Counter + 2][i], InputDataFrame[Counter + 3][i]]))
-                AngleList.append(Angles)
-            print(AngleList)
-            breakpoint()
-            OutlierFrames.append(LogScaled)
             mp.hist(x=LogScaled, bins=25)
             mp.xlabel("log scaled inter-label Euclidean distance")
             mp.ylabel("Number of frames")
-            mp.title("Norm from {0} to {1}".format())
+            #mp.title("Norm from {0} to {1}".format())
             mp.show()
             Counter += 2
         # TTest = lambda 
         # for LabelDistances in OutlierFrames:
+        breakpoint()
             
             
 

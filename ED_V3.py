@@ -102,7 +102,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                             #Some logic to control for the first index value containing a p-val < 0.95
                             pass
         return(InputDataFrame)
-    
+
     def createSkeleton(self, InputDataFrame, BodyParts):
         print(InputDataFrame[[1]], InputDataFrame[[2]])
         OutlierFrames = []
@@ -119,7 +119,6 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         ComputeVectorAngle = lambda Vec1, Vec2: math.degrees(np.arccos(np.sum(float(i) * float(j) for i, j in zip(Vec1, Vec2))/(np.sqrt(np.sum(float(i)**2 for i in Vec1)) * (np.sqrt(np.sum(float(j)**2 for j in Vec2))))))
         # VectorAngles = lambda x, y: np.arccos((i * j for i, j in zip(x, y))/())
         #################
-        
         InputDataFrame = InputDataFrame.drop([Cols for Cols in InputDataFrame.columns.values if Cols % 3 == 0], axis=1)
         CoordDict = {
             BodyParts[Ind]:[] for Ind in range(len(BodyParts))
@@ -131,17 +130,24 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                 FrameCol2 = InputDataFrame.columns.values[Cols + 1]
                 CoordDict[BodyParts[DictPointer]] = [(x, y) for x, y in zip(InputDataFrame[FrameCol1], InputDataFrame[FrameCol2])]
                 DictPointer += 1
-        ComputeVectors = list(map(CreateVector, CoordDict["Head"], CoordDict["Body"]))
-        ComputeVectors2 = list(map(CreateVector, CoordDict["Body"], CoordDict["Tail"]))
+        ComputeVectors = list(map(CreateVector, CoordDict["head"], CoordDict["body"]))
+        ComputeVectors2 = list(map(CreateVector, CoordDict["head"], CoordDict["nose"]))
+        print(ComputeVectors[0], ComputeVectors2[0])
         ComputeAngles = list(map(ComputeVectorAngle, ComputeVectors, ComputeVectors2))
+        print(ComputeAngles[0])
         ComputeNorm = list(map(Norm, ComputeVectors))
         ComputeNorm2 = list(map(Norm, ComputeVectors2))
+        print(ComputeNorm[0], ComputeNorm2[0])
         LogNorm = list(map(LogScale, ComputeNorm))
         LogNorm2 = list(map(LogScale, ComputeNorm2))
-        print(ComputeNorm[0:3])
-        print(LogNorm[0:3])
-        mp.hist(LogNorm, bins=25, color = "Blue", label="Head-Body Vector")
-        mp.hist(LogNorm2, bins=25, color="green", label="Body-Tail Vector")
+        #Comparing to the angles defined in the compute vectors variables.
+        mp.scatter(LogNorm, ComputeAngles)
+        mp.xlabel("log-scaled nose-head vector norm")
+        mp.ylabel("nose-head, nose-body vector angle")
+        mp.title("Scatter plot of log-scaled vector norm vs. vector angle")
+        mp.show()
+        mp.hist(LogNorm, bins=25, color = "Blue", label="nose-head Vector")
+        mp.hist(LogNorm2, bins=25, color="green", label="nose-body Vector")
         mp.xlabel("log-scaled Euclidean distance")
         mp.ylabel("Frequency in frames")
         mp.title("log-scaled ED vs. Frequency distribution")
@@ -150,27 +156,34 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         mp.hist(ComputeAngles, bins=25, color="red")
         mp.xlabel("Angle (degrees)")
         mp.ylabel("Frequency in frames")
-        mp.title("Head-Body and Body-Tail vector angle vs. Frequency of occurance")
+        mp.title("nose-head and head-body vector angle vs. Frequency of occurance")
         mp.show()
         InputDataFrame = InputDataFrame.rename(columns={InputDataFrame.columns.values[i]:i for i in range(len(InputDataFrame.columns.values))}).apply(pd.to_numeric)
-        Counter = 0
-        while(Counter < len(InputDataFrame.columns.values) - 3):
-            SomeMap = list(map(CoordVector, InputDataFrame[Counter], InputDataFrame[Counter + 1], 
-                               InputDataFrame[Counter + 2], InputDataFrame[Counter + 3]))
-            SomeMap2 = list(map(Norm, SomeMap))
-            Normal = list(map(Normalize, SomeMap2, [np.mean(SomeMap2)]*len(SomeMap2), [np.std(SomeMap2)]*len(SomeMap2)))
-            LogScaled = [list(map(LogScale, SomeMap2))]
-            mp.hist(x=LogScaled, bins=25)
-            mp.xlabel("log scaled inter-label Euclidean distance")
-            mp.ylabel("Number of frames")
-            #mp.title("Norm from {0} to {1}".format())
-            mp.show()
-            Counter += 2
-        # TTest = lambda 
+#        Counter = 0
+#        while(Counter < len(InputDataFrame.columns.values) - 3):
+#            SomeMap = list(map(CoordVector, InputDataFrame[Counter], InputDataFrame[Counter + 1],
+#                               InputDataFrame[Counter + 2], InputDataFrame[Counter + 3]))
+#            SomeMap2 = list(map(Norm, SomeMap))
+#            Normal = list(map(Normalize, SomeMap2, [np.mean(SomeMap2)]*len(SomeMap2), [np.std(SomeMap2)]*len(SomeMap2)))
+#            LogScaled = [list(map(LogScale, SomeMap2))]
+#            mp.hist(x=LogScaled, bins=25)
+#            mp.xlabel("log scaled inter-label Euclidean distance")
+#            mp.ylabel("Number of frames")
+#            #mp.title("Norm from {0} to {1}".format())
+#            mp.show()
+#            Counter += 2
+        # TTest = lambda
         # for LabelDistances in OutlierFrames:
+
+        #Plot of angle vs. norm Data
+
+
+
+
+
         breakpoint()
-            
-            
+
+
 
     def computeEuclidean(self, InputDataFrame, BodyParts):
         DistanceVectors = [[] for _ in range(len(BodyParts))]
@@ -190,7 +203,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
             }
         EuclideanDistanceDF = pd.DataFrame(DataStructure)
         return(EuclideanDistanceDF)
-    
+
     def checkSpeedDistance(self, EuclideanDistanceFrame, FPS, BodyPart):
         OutlierFrames = [[] for _ in range(len(EuclideanDistanceFrame.columns.values))]
         VelocityDict = {
@@ -207,7 +220,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                 Time += 1/FPS
         AccelerationDict = {
             EuclideanDistanceFrame.columns.values[rng]:[[], []] for rng in range(len(EuclideanDistanceFrame.columns.values))
-            }      
+            }
         for Keys in VelocityDict:
             Time2 = 1/FPS
             for Time, Velocity in zip(range(len(VelocityDict[Keys][0]) - 1), range(len(VelocityDict[Keys][1]) - 1)):
@@ -218,7 +231,7 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                 AccelerationDict[Keys][1].append(ComputedAcceleration)
                 Time2 += 1/FPS
         fig, ax = mp.subplots()
-        ax.plot(AccelerationDict[BodyPart][0], AccelerationDict[BodyPart][1], linestyle='solid', label="Acceleration", color="red") 
+        ax.plot(AccelerationDict[BodyPart][0], AccelerationDict[BodyPart][1], linestyle='solid', label="Acceleration", color="red")
         ax.plot(VelocityDict[BodyPart][0], VelocityDict[BodyPart][1], linestyle='solid', label = "Velocity")
         mp.xlabel("Elapsed Time, seconds")
         mp.ylabel("Acceleration (pixels/s^2) and Velocity (pixels/s)")
@@ -242,15 +255,15 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         breakpoint()
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
-        
+
         #self.createMovementPlot(InputDataFrame=PValCorrectedFrames[0])
         print(DLCFrames[0][0])
         SampleUncorrected = self.computeEuclidean(InputDataFrame=DLCFrames[0][0], BodyParts=DLCFrames[0][1])
         print(SampleUncorrected)
         self.checkSpeedDistance(EuclideanDistanceFrame=SampleUncorrected, FPS = Init.FPS, BodyPart="Body")
         self.checkSpeedDistance(EuclideanDistanceFrame=EuclideanDistanceFrames[0], FPS = Init.FPS, BodyPart="Body")
-        
-        
+
+
         #return only the body part list of the first frame, should be the same as all others if dealing with path.
         #come up with a better way to do this though
         BodyPartLists = DLCFrames[0][1]
@@ -268,7 +281,7 @@ class hourlySum(initVars, Export):
             SumFunction = sum(IndFrames[Col])
             sumVectors.append(SumFunction)
         return(sumVectors)
-    
+
     def graphSums(self, InputFrame):
         for Cols in InputFrame.columns.values:
             mp.plot(InputFrame.index.values, InputFrame[Cols], label=Cols)
@@ -292,7 +305,7 @@ class hourlySum(initVars, Export):
 class mathFunctions(initVars, Export):
     def InheritExport(self, ExportFile, ExportSource, FileName):
         return(FileExport().ExportFunction(Frame=ExportFile, Source=ExportSource, Name=FileName))
-    
+
     def createLinearEquations(self, IndFrames):
         SlopeLists = [[] for _ in range(len(IndFrames.columns.values))]
         if len(IndFrames.index.values) > 1:
@@ -304,7 +317,7 @@ class mathFunctions(initVars, Export):
         elif len(IndFrames.index.values) == 1:
             pass
         return(SlopeLists)
-    
+
     def integrateLinearFunctions(self, LinearEquation):
         IntegralValues = [[] for _ in range(len(LinearEquation))]
         for BodyParts, rng in zip(LinearEquation, range(len(LinearEquation))):
@@ -313,7 +326,7 @@ class mathFunctions(initVars, Export):
                 Integral = integrate.quad(Function, 0, 1, args=(SIvals[0], SIvals[1]))
                 IntegralValues[rng].append(abs(Integral[0]))
         return(IntegralValues)
-    
+
     def visualizeArea(self, IntegralFrame):
         X_Axis = range(len(IntegralFrame))
         X_Axis = np.arange(len(X_Axis))
@@ -324,7 +337,7 @@ class mathFunctions(initVars, Export):
             Width += 0.1
         ax.legend()
         mp.show()
-        
+
     def VarLoads(self, Init, InputHourlySumFrame):
         LinearEquations = self.createLinearEquations(IndFrames = InputHourlySumFrame)
         Integrals = self.integrateLinearFunctions(LinearEquation=LinearEquations)
@@ -336,7 +349,7 @@ class mathFunctions(initVars, Export):
 
 if __name__ == '__main__':
     Init = InitializeVars(
-        Path=r"F:\work\TestVideos_NewNetwork\20191206-20200507T194022Z-001\20191206\RawVids\RawVideos2",
+        Path="/Users/lucahategan/Desktop/For work/work files/drive-download-20200528T164242Z-001/072700_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
         BodyPartList=["nose", "head", "body", "tail"],
         PValCutOff=0.95, ExportSource="", FramesPerSecond = 4
         )

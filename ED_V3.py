@@ -117,6 +117,28 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         LogScale = lambda X: np.log10(X)
         CreateVector = lambda Coord1, Coord2: [(float(y) - float(x)) for x, y in zip(Coord1, Coord2)]
         ComputeVectorAngle = lambda Vec1, Vec2: math.degrees(np.arccos(np.sum(float(i) * float(j) for i, j in zip(Vec1, Vec2))/(np.sqrt(np.sum(float(i)**2 for i in Vec1)) * (np.sqrt(np.sum(float(j)**2 for j in Vec2))))))
+        ComputeVectorSum = lambda Vec1, Vec2: [x + y for x, y in zip(Vec1, Vec2)]
+        
+        ComputeProjectionV1 = lambda Vec1, Vec2: ((sum((x * y) for x, y in zip(Vec1, Vec2)))/(sum(x ** 2 for x in Vec2)))
+        def ComputeProjectionV2(Vec1, ConstantVec):
+            ScalaredVecs = []
+            for Vecs, Cons in zip(Vec1, ConstantVec):
+                ScaleVec = np.array(Vecs) * Cons
+                ScalaredVecs.append(list(ScaleVec))
+            return(ScalaredVecs)
+        
+        # def ComputeProjectionVector(Vec1, Vec2):
+        #     Scalar = ((sum((x * y) for x, y in zip(Vec1, Vec2)))/(sum(x ** 2 for x in Vec2)))
+        #     ScalarMultipledVec = [np.array(Vecs) * Scalar for Vecs in Vec1]
+        #     return(ScalarMultipledVec)
+            
+        ComputePerp = lambda Vec1, Proj2: ((x - y) for x, y in zip(Vec1, Proj2))
+        def ComputePerpendicular(Vec1, Vec2):
+            for Vecs1, Vecs2 in zip(Vec1, Vec2):
+                Vecs1.append(0)
+                Vecs2.append(0)
+            Cross = [list(np.cross(x, y)) for x, y in zip(Vec1, Vec2)]
+            return(Cross)
         # VectorAngles = lambda x, y: np.arccos((i * j for i, j in zip(x, y))/())
         #################
         InputDataFrame = InputDataFrame.drop([Cols for Cols in InputDataFrame.columns.values if Cols % 3 == 0], axis=1)
@@ -130,8 +152,29 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
                 FrameCol2 = InputDataFrame.columns.values[Cols + 1]
                 CoordDict[BodyParts[DictPointer]] = [(x, y) for x, y in zip(InputDataFrame[FrameCol1], InputDataFrame[FrameCol2])]
                 DictPointer += 1
-        ComputeVectors = list(map(CreateVector, CoordDict["head"], CoordDict["body"]))
-        ComputeVectors2 = list(map(CreateVector, CoordDict["head"], CoordDict["nose"]))
+        BPart1 = "Body"
+        BPart2 = "Head"
+        BPart3 = "Tail"
+        ComputeVectors = list(map(CreateVector, CoordDict[BPart1], CoordDict[BPart2]))
+        ComputeVectors2 = list(map(CreateVector, CoordDict[BPart1], CoordDict[BPart3]))
+        ComputeVectors3 = list(map(CreateVector, CoordDict[BPart1], CoordDict[BPart3]))
+        CrossProducts = ComputePerpendicular(ComputeVectors, ComputeVectors2)
+        CrossProductNorm = list(map(Norm, CrossProducts))
+        Proj1_1 = list(map(ComputeProjectionV1, ComputeVectors2, ComputeVectors))
+        
+        Proj1_2 = ComputeProjectionV2(ComputeVectors, Proj1_1)
+        perp1 = list(map(ComputePerp, ComputeVectors2, Proj1_2))
+        
+    
+        PerpNorm = list(map(Norm, perp1))
+        ProjNorm = list(map(Norm, Proj1_2))
+        LogPerp = list(map(LogScale, PerpNorm))
+        LogProj = list(map(LogScale, ProjNorm))
+        #Diagonal of 2 vectors is their sum
+        Sum = list(map(ComputeVectorSum, ComputeVectors, ComputeVectors2))
+        NormSum = list(map(Norm, Sum))
+        ComputeNorm3 = list(map(Norm, ComputeVectors3))
+        #LogNorm3 = list(map(LogScale,))
         print(ComputeVectors[0], ComputeVectors2[0])
         ComputeAngles = list(map(ComputeVectorAngle, ComputeVectors, ComputeVectors2))
         print(ComputeAngles[0])
@@ -141,22 +184,22 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         LogNorm = list(map(LogScale, ComputeNorm))
         LogNorm2 = list(map(LogScale, ComputeNorm2))
         #Comparing to the angles defined in the compute vectors variables.
-        mp.scatter(LogNorm, ComputeAngles)
-        mp.xlabel("log-scaled nose-head vector norm")
-        mp.ylabel("nose-head, nose-body vector angle")
-        mp.title("Scatter plot of log-scaled vector norm vs. vector angle")
+        mp.scatter(ProjNorm, ComputeAngles)
+        mp.xlabel("projection vector norm")
+        mp.ylabel("{0}-{1}, {0}-{2} vector angle".format(BPart1, BPart2, BPart3))
+        mp.title("Scatter plot of vector norm vs. vector angle")
         mp.show()
-        mp.hist(LogNorm, bins=25, color = "Blue", label="nose-head Vector")
-        mp.hist(LogNorm2, bins=25, color="green", label="nose-body Vector")
+        mp.hist(LogNorm, bins=25, color = "Blue", label="{0}-{1} Vector".format(BPart1, BPart2))
+        mp.hist(LogNorm2, bins=25, color="green", label="{0}-{1} Vector".format(BPart1, BPart3))
         mp.xlabel("log-scaled Euclidean distance")
         mp.ylabel("Frequency in frames")
         mp.title("log-scaled ED vs. Frequency distribution")
         mp.legend()
         mp.show()
-        mp.hist(ComputeAngles, bins=25, color="red")
+        mp.hist(ComputeAngles, bins=40, color="red")
         mp.xlabel("Angle (degrees)")
         mp.ylabel("Frequency in frames")
-        mp.title("nose-head and head-body vector angle vs. Frequency of occurance")
+        mp.title("body-head and body-tail vector angle vs. Frequency of occurance")
         mp.show()
         InputDataFrame = InputDataFrame.rename(columns={InputDataFrame.columns.values[i]:i for i in range(len(InputDataFrame.columns.values))}).apply(pd.to_numeric)
 #        Counter = 0
@@ -176,14 +219,6 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         # for LabelDistances in OutlierFrames:
 
         #Plot of angle vs. norm Data
-
-
-
-
-
-        breakpoint()
-
-
 
     def computeEuclidean(self, InputDataFrame, BodyParts):
         DistanceVectors = [[] for _ in range(len(BodyParts))]
@@ -252,7 +287,6 @@ class ComputeEuclideanDistance(initVars, Imports, Export):
         DLCFrames = [self.preprocessFrame(InputDataFrame=Frames) for Frames in DLCFrame]
         PValCorrectedFrames = [self.checkPvals(InputDataFrame = Frames[0], CutOff = Init.CutOff) for Frames in DLCFrames]
         Skeleton = [self.createSkeleton(Frames, BodyParts = DLCFrames[0][1]) for Frames in PValCorrectedFrames]
-        breakpoint()
         EuclideanDistanceFrames = [self.computeEuclidean(InputDataFrame = PValCorrectedFrames[Rng], BodyParts = DLCFrames[Rng][1])
                                    for Rng in range(len(PValCorrectedFrames))]
 
@@ -349,7 +383,7 @@ class mathFunctions(initVars, Export):
 
 if __name__ == '__main__':
     Init = InitializeVars(
-        Path="/Users/lucahategan/Desktop/For work/work files/drive-download-20200528T164242Z-001/072700_480x360DeepCut_resnet50_RatNov29shuffle1_1030000.csv",
+        Path=r"F:\work\TestVideos_NewNetwork\20191206-20200507T194022Z-001\20191206\RawVids\NewLabels",
         BodyPartList=["nose", "head", "body", "tail"],
         PValCutOff=0.95, ExportSource="", FramesPerSecond = 4
         )
